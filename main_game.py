@@ -13,8 +13,9 @@ TWO_CACTUS_TALL_WIDTH, TWO_CACTUS_TALL_HEIGHT = 56, 55
 TWO_CACTUS_SMALL_WIDTH, TWO_CACTUS_SMALL_HEIGHT = 70, 35
 
 
-VEL = 7
+
 FPS = 30
+VEL = 7
 
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
@@ -57,28 +58,36 @@ class Obstacle:
         self.vel = 0
         self.img = img
         self.obsRect = pygame.Rect(self.x, self.y, width, height)
-        Obstacle.obstacle_list.append(self)
+    
+    @classmethod
+    def add_obstacle(cls):
+        random_obstacle = random.choice(cls.obstacle_list)
+        new_rect = Obstacle(random_obstacle.x, random_obstacle.y, random_obstacle.width, 
+                            random_obstacle.height, random_obstacle.img)
+        
+        cls.current_obstacles.append(new_rect)
 
 
     @classmethod
     def spawn(cls):
+        
+        for i in range(len(cls.current_obstacles)):
+            cls.current_obstacles[i].obsRect.x -= VEL
+            cls.current_obstacles[i].draw()
 
-        for current in cls.current_obstacles:
+            try:
+                if 50 <= cls.current_obstacles[i-1].obsRect.x <= WIDTH // 2 + 50 and len(cls.current_obstacles) < 3:
+                    Obstacle.add_obstacle()
+            except:
+                continue
             
-            current.obsRect.x -= VEL
+            if cls.current_obstacles[i].obsRect.x < -5:
+                cls.current_obstacles.remove(cls.current_obstacles[i])
+            
 
-            if random.uniform(0, WIDTH//2) <= current.obsRect.x <= WIDTH//2 + 20 and len(cls.current_obstacles) < 3:
-                new_obs = random.choice(cls.obstacle_list)
-                new_obs_Rect = pygame.Rect(new_obs.x, new_obs.y, new_obs.width, new_obs.height)
-                cls.current_obstacles.append(new_obs_Rect)
-            
-            if current.obsRect.x <= 0:
-                cls.current_obstacles.remove(current)
-
-            current.draw()
-            
     def draw(self):
         WIN.blit(self.img, (self.obsRect.x, self.obsRect.y))
+        
 
 
 def draw_window(dino):
@@ -101,7 +110,8 @@ def main():
     one_cactus_small = Obstacle(750, HEIGHT//2 + 75, ONE_CACTUS_SMALL_WIDTH, ONE_CACTUS_SMALL_HEIGHT, ONE_CACTUS_SMALL)
     two_cactus_tall = Obstacle(750, HEIGHT//2 + 52, TWO_CACTUS_TALL_WIDTH, TWO_CACTUS_TALL_HEIGHT, TWO_CACTUS_TALL)
 
-    Obstacle.current_obstacles.append(one_cactus_tall)
+    Obstacle.obstacle_list.extend([one_cactus_small, one_cactus_tall, two_cactus_tall])
+    Obstacle.current_obstacles.extend([random.choice(Obstacle.obstacle_list)] * 2)
 
     clock = pygame.time.Clock()
     run = True
