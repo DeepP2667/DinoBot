@@ -5,16 +5,21 @@ pygame.font.init()
 
 WIDTH, HEIGHT = 700, 400
 DINO_WIDTH, DINO_HEIGHT = 63, 63
+
+BIRD_WIDTH, BIRD_HEIGHT = 63, 50
+
 DINO_Y = HEIGHT//2 + 48
 
 ONE_CACTUS_TALL_WIDTH, ONE_CACTUS_TALL_HEIGHT = 25, 50
 ONE_CACTUS_SMALL_WIDTH, ONE_CACTUS_SMALL_HEIGHT = 15, 30
 
 TWO_CACTUS_TALL_WIDTH, TWO_CACTUS_TALL_HEIGHT = 51, 50
-TWO_CACTUS_SMALL_WIDTH, TWO_CACTUS_SMALL_HEIGHT = 70, 35
+TWO_CACTUS_SMALL_WIDTH, TWO_CACTUS_SMALL_HEIGHT = 36, 35
+
+FOUR_CACTUS_TALL_WIDTH, FOUR_CACTUS_TALL_HEIGHT = 76, 50
+FOUR_CACTUS_SMALL_WIDTH, FOUR_CACTUS_SMALL_HEIGHT = 53, 35
 
 FPS = 60
-OBSTACLE_VEL = 5
 BACKGROUND_VEL = 1
 
 WHITE = (255, 255, 255)
@@ -28,13 +33,22 @@ DINO = pygame.transform.scale(DINO_IMAGE, (DINO_WIDTH, DINO_HEIGHT))
 DINO1 = pygame.transform.scale(DINO1_IMAGE, (DINO_WIDTH, DINO_HEIGHT))
 DINO2 = pygame.transform.scale(DINO2_IMAGE, (DINO_WIDTH, DINO_HEIGHT))
 
+BIRD_IMAGE = pygame.image.load(os.path.join('Assets', 'bird.png'))
+BIRD2_IMAGE = pygame.image.load(os.path.join('Assets', 'bird2.png'))
+BIRD = pygame.transform.scale(BIRD_IMAGE, (BIRD_WIDTH, BIRD_HEIGHT))
+BIRD2 = pygame.transform.scale(BIRD2_IMAGE, (BIRD_WIDTH, BIRD_HEIGHT))
+
 ONE_CACTUS_IMAGE = pygame.image.load(os.path.join('Assets', 'OneCactus.png'))
 ONE_CACTUS_TALL = pygame.transform.scale(ONE_CACTUS_IMAGE, (ONE_CACTUS_TALL_WIDTH, ONE_CACTUS_TALL_HEIGHT))
 ONE_CACTUS_SMALL = pygame.transform.scale(ONE_CACTUS_IMAGE, (ONE_CACTUS_SMALL_WIDTH, ONE_CACTUS_SMALL_HEIGHT))
 
 TWO_CACTUS_IMAGE = pygame.image.load(os.path.join('Assets', 'TwoCactus.png'))
 TWO_CACTUS_TALL = pygame.transform.scale(TWO_CACTUS_IMAGE, (TWO_CACTUS_TALL_WIDTH, TWO_CACTUS_TALL_HEIGHT))
-TWO_CACTUS_SMALL = pygame.transform.scale(ONE_CACTUS_IMAGE, (TWO_CACTUS_SMALL_WIDTH, TWO_CACTUS_SMALL_HEIGHT))
+TWO_CACTUS_SMALL = pygame.transform.scale(TWO_CACTUS_IMAGE, (TWO_CACTUS_SMALL_WIDTH, TWO_CACTUS_SMALL_HEIGHT))
+
+FOUR_CACTUS_IMAGE = pygame.image.load(os.path.join('Assets', 'FourCactus.png'))
+FOUR_CACTUS_TALL = pygame.transform.scale(FOUR_CACTUS_IMAGE, (FOUR_CACTUS_TALL_WIDTH, FOUR_CACTUS_TALL_HEIGHT))
+FOUR_CACTUS_SMALL = pygame.transform.scale(FOUR_CACTUS_IMAGE, (FOUR_CACTUS_SMALL_WIDTH, FOUR_CACTUS_SMALL_HEIGHT))
 
 BACKGROUND = pygame.image.load(os.path.join('Assets', 'Background.png'))
 BACKGROUND2 = pygame.image.load(os.path.join('Assets', 'Background2.png'))
@@ -60,8 +74,8 @@ class Dino:
         self.img = DINO
         self.jump_vel = 10
         self.jumping = False
-        self.rounded_score = 0
-        self.actual_score = 0
+        self.rounded_score = 1
+        self.actual_score = 1
         self.animation = 0
         self.animation_count = 0
 
@@ -110,6 +124,9 @@ class Obstacle:
     obstacle_list = []
     current_obstacles = []
     counter = 0
+    right_spawn_border = WIDTH // 2 + 50
+    counter_tick = 0
+    obstacle_vel = 5
 
     def __init__(self, x, y, width, height, img):
         self.x = x
@@ -117,10 +134,18 @@ class Obstacle:
         self.width = width
         self.height = height
         self.img = img
+        self.animation_count = 0
     
     @classmethod
-    def add_obstacle(cls):
-        random_obstacle = random.choice(cls.obstacle_list)
+    def add_obstacle(cls, dino):
+        if dino.rounded_score >= 500:
+            random_obstacle = random.choice(cls.obstacle_list)
+            if random_obstacle.img == BIRD:
+                random_obstacle.y = random.choice([HEIGHT//2, HEIGHT//2 + 35, DINO_Y + 10])
+
+        else:    
+            random_obstacle = random.choice(cls.obstacle_list[:len(cls.obstacle_list)-1])
+
         new_obstacle = Obstacle(random_obstacle.x, random_obstacle.y, random_obstacle.width, random_obstacle.height, random_obstacle.img)
         cls.current_obstacles.append(new_obstacle)
 
@@ -128,19 +153,26 @@ class Obstacle:
     def spawn(cls, dino):
 
         cls.counter += 1
+ 
+        bottom_counter = random.randint(20, 60) + cls.counter_tick
 
         if len(cls.current_obstacles) == 0:
-            Obstacle.add_obstacle()
+            Obstacle.add_obstacle(dino)
+
+        if dino.rounded_score % 200 == 0 and dino.rounded_score <= 1200:
+            cls.right_spawn_border -= 25/6
+            cls.counter_tick += 10/6
+            cls.obstacle_vel += 1/6
 
         for current in cls.current_obstacles:
 
-            current.x -= OBSTACLE_VEL
+            current.x -= cls.obstacle_vel
 
-            if 50 <= current.x <= WIDTH // 2 + 50 and len(cls.current_obstacles) < 2 and random.randint(20, 60) <= cls.counter <= 120:
-                Obstacle.add_obstacle()
+            if 50 <= current.x <= cls.right_spawn_border and len(cls.current_obstacles) < 2 and bottom_counter <= cls.counter <= 120:
+                Obstacle.add_obstacle(dino)
                 cls.counter = 0
             
-            if current.x <= -30:
+            if current.x <= -current.width:
                 cls.current_obstacles.remove(current)
 
             collided = current.collide(dino)
@@ -152,13 +184,27 @@ class Obstacle:
 
 
     def draw(self):
-        WIN.blit(self.img, (self.x, self.y))
+        if self.img != BIRD:
+            WIN.blit(self.img, (self.x, self.y))
+
+        elif 0 <= self.animation_count <= 15:
+            WIN.blit(BIRD, (self.x, self.y))
+            self.animation_count += 1
+
+        elif 15 <= self.animation_count <= 30:
+            WIN.blit(BIRD2, (self.x, self.y))
+            self.animation_count += 1
+
+        else:
+            WIN.blit(BIRD, (self.x, self.y))
+            self.animation_count = 0
+        
 
     def collide(self, dino):
         dino_mask = dino.get_mask()
         obstacle_mask = pygame.mask.from_surface(self.img)
 
-        obstacle_offset = (self.x - dino.x, round(self.y - dino.y))
+        obstacle_offset = (round(self.x - dino.x), round(self.y - dino.y))
 
         point = dino_mask.overlap(obstacle_mask, obstacle_offset)
 
@@ -203,15 +249,21 @@ def main():
     WIN.fill(WHITE)
 
     dino = Dino(DINO_Y)
-    one_cactus_tall = Obstacle(750, HEIGHT//2 + 57, ONE_CACTUS_TALL_WIDTH, ONE_CACTUS_TALL_HEIGHT, ONE_CACTUS_TALL)
     one_cactus_small = Obstacle(750, HEIGHT//2 + 75, ONE_CACTUS_SMALL_WIDTH, ONE_CACTUS_SMALL_HEIGHT, ONE_CACTUS_SMALL)
+    one_cactus_tall = Obstacle(750, HEIGHT//2 + 57, ONE_CACTUS_TALL_WIDTH, ONE_CACTUS_TALL_HEIGHT, ONE_CACTUS_TALL)
+    two_cactus_small = Obstacle(750, HEIGHT//2 + 70, TWO_CACTUS_SMALL_WIDTH, TWO_CACTUS_SMALL_HEIGHT, TWO_CACTUS_SMALL)
     two_cactus_tall = Obstacle(750, HEIGHT//2 + 56, TWO_CACTUS_TALL_WIDTH, TWO_CACTUS_TALL_HEIGHT, TWO_CACTUS_TALL)
+    four_cactus_small = Obstacle(750, HEIGHT//2 + 70, FOUR_CACTUS_SMALL_WIDTH, FOUR_CACTUS_SMALL_HEIGHT, FOUR_CACTUS_SMALL)
+    four_cactus_tall = Obstacle(750, HEIGHT//2 + 56, FOUR_CACTUS_TALL_WIDTH, FOUR_CACTUS_TALL_HEIGHT, FOUR_CACTUS_TALL)
+    bird = Obstacle(750, HEIGHT//2, BIRD_WIDTH, BIRD_HEIGHT, BIRD)
 
     Obstacle.obstacle_list = []
     Obstacle.current_obstacles = []
     Obstacle.counter = 0
+    Obstacle.obstacle_vel = 5
 
-    Obstacle.obstacle_list.extend([one_cactus_small, one_cactus_tall, two_cactus_tall])
+    Obstacle.obstacle_list.extend([one_cactus_small, one_cactus_tall, two_cactus_small, two_cactus_tall, 
+                                   four_cactus_small, four_cactus_tall, bird])
 
     bg1x = 0
     bg2x = BACKGROUND.get_width()
@@ -232,9 +284,9 @@ def main():
         bg2x -= BACKGROUND_VEL
         bg3x -= BACKGROUND_VEL
 
-        grd1x -= OBSTACLE_VEL
-        grd2x -= OBSTACLE_VEL
-        grd3x -= OBSTACLE_VEL
+        grd1x -= Obstacle.obstacle_vel
+        grd2x -= Obstacle.obstacle_vel
+        grd3x -= Obstacle.obstacle_vel
 
 
         if bg1x < BACKGROUND.get_width() * -1:
