@@ -1,6 +1,8 @@
 import pygame
 import os
 import random
+import neat
+
 pygame.font.init()
 
 WIDTH, HEIGHT = 700, 400
@@ -10,7 +12,7 @@ BIRD_WIDTH, BIRD_HEIGHT = 63, 50
 
 DINO_Y = HEIGHT//2 + 48
 
-ONE_CACTUS_TALL_WIDTH, ONE_CACTUS_TALL_HEIGHT = 25, 50
+ONE_CACTUS_TALL_WIDTH, ONE_CACTUS_TALL_HEIGHT = 25, 50 
 ONE_CACTUS_SMALL_WIDTH, ONE_CACTUS_SMALL_HEIGHT = 15, 30
 
 TWO_CACTUS_TALL_WIDTH, TWO_CACTUS_TALL_HEIGHT = 51, 50
@@ -21,6 +23,8 @@ FOUR_CACTUS_SMALL_WIDTH, FOUR_CACTUS_SMALL_HEIGHT = 53, 35
 
 FPS = 60
 BACKGROUND_VEL = 1
+
+SCORE_UPDATE = 5/33
 
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
@@ -74,8 +78,6 @@ class Dino:
         self.img = DINO
         self.jump_vel = 10
         self.jumping = False
-        self.rounded_score = 1
-        self.actual_score = 1
         self.animation = 0
         self.animation_count = 0
 
@@ -136,8 +138,8 @@ class Obstacle:
         self.animation_count = 0
     
     @classmethod
-    def add_obstacle(cls, dino):
-        if dino.rounded_score >= 500:
+    def add_obstacle(cls, dinos, rounded_score):
+        if rounded_score >= 500:
             random_obstacle = random.choice(cls.obstacle_list)
             if random_obstacle.img == BIRD:
                 random_obstacle.y = random.choice([HEIGHT//2, HEIGHT//2 + 35, DINO_Y + 10])
@@ -149,32 +151,37 @@ class Obstacle:
         cls.current_obstacles.append(new_obstacle)
 
     @classmethod
-    def spawn(cls, dino):
-
+    def spawn(cls, dinos, rounded_score, nets, ge):
+        
         cls.counter += 1
  
         bottom_counter = random.randint(20, 60) + cls.counter_tick
 
         if len(cls.current_obstacles) == 0:
-            Obstacle.add_obstacle(dino)
+            Obstacle.add_obstacle(dinos, rounded_score)
 
-        if dino.rounded_score % 200 == 0 and dino.rounded_score <= 1200:
+        if rounded_score % 200 == 0 and rounded_score <= 1200:
             cls.right_spawn_border -= 25/6
             cls.counter_tick += 10/6
             cls.obstacle_vel += 1/6
-
+            
         for current in cls.current_obstacles:
 
             current.x -= cls.obstacle_vel
 
+            for g in ge:
+                if current.x <= 10:
+                    g.fitness += 5
+
             if 50 <= current.x <= cls.right_spawn_border and len(cls.current_obstacles) < 2 and bottom_counter <= cls.counter <= 120:
-                Obstacle.add_obstacle(dino)
+                Obstacle.add_obstacle(dinos, rounded_score)
                 cls.counter = 0
             
             if current.x <= -current.width:
+
                 cls.current_obstacles.remove(current)
 
-            collided = current.collide(dino)
+            collided = current.collide(dinos, nets, ge)
 
             if collided:
                 return True
@@ -199,21 +206,23 @@ class Obstacle:
             self.animation_count = 0
         
 
-    def collide(self, dino):
-        dino_mask = dino.get_mask()
-        obstacle_mask = pygame.mask.from_surface(self.img)
+    def collide(self, dinos, nets, ge):
+        for i, dino in enumerate(dinos):
+            dino_mask = dino.get_mask()
+            obstacle_mask = pygame.mask.from_surface(self.img)
 
-        obstacle_offset = (round(self.x - dino.x), round(self.y - dino.y))
+            obstacle_offset = (round(self.x - dino.x), round(self.y - dino.y))
 
-        point = dino_mask.overlap(obstacle_mask, obstacle_offset)
+            point = dino_mask.overlap(obstacle_mask, obstacle_offset)
 
-        if point:
-            return True
-
-        return False
+            if point:
+                dinos.pop(i)
+                nets.pop(i)
+                ge[i].fitness -= 1
+                ge.pop(i)
         
 
-def draw_window(dino, backgrounds, grounds):
+def draw_window(dinos, rounded_score, backgrounds, grounds, nets, ge):
 
     WIN.fill(WHITE)
 
@@ -221,33 +230,72 @@ def draw_window(dino, backgrounds, grounds):
     WIN.blit(BACKGROUND2, (backgrounds[1] ,0))
     WIN.blit(BACKGROUND3, (backgrounds[2] ,0))
 
-    score_text = SCORE_FONT.render(f'{dino.rounded_score}', True, GRAY)
+    score_text = SCORE_FONT.render(f'{rounded_score}', True, GRAY)
     WIN.blit(score_text, (WIDTH - score_text.get_width() - 20, 20))
 
     WIN.blit(GROUND, (grounds[0] ,DINO_Y + 40))
     WIN.blit(GROUND2, (grounds[1] ,DINO_Y + 40))
     WIN.blit(GROUND3, (grounds[2] ,DINO_Y + 40))
 
-    if dino.jumping:
-        reached_ground = dino.jump()
-        if reached_ground:
-            dino.jumping = False
+    Obstacle.spawn(dinos, rounded_score, nets, ge)
 
-    dino.draw()
+    if len(Obstacle.current_obstacles) < 1:
+        print("0")
+    obs_ind = 0
 
-    collided = Obstacle.spawn(dino)
+    if len(dinos) > 0:
+        if len(Obstacle.current_obstacles) > 1 and dinos[0].x > Obstacle.current_obstacles[0].x:
+            obs_ind = 1
+    else:
+        return 'Finished'
 
-    if collided:
-        return True
+    for dino in dinos:
+
+        ge[dinos.index(dino)].fitness += SCORE_UPDATE
+
+        try:
+            obstacle_pos = Obstacle.current_obstacles[obs_ind].x
+            distance_to_first = abs(dino.x - Obstacle.current_obstacles[obs_ind].x)
+            distance_to_next = abs(dino.x - Obstacle.current_obstacles[obs_ind+1].x)
+
+        except IndexError:
+            obstacle_pos = 750
+            distance_to_first = 750
+            distance_to_next= 750
+
+        output = nets[dinos.index(dino)].activate((dino.x, obstacle_pos, distance_to_first, distance_to_next))
+
+        if dino.y < DINO_Y:
+            dino.jump()
+            dino.draw()
+        elif output[0] > 0.5:
+            dino.jump()
+            dino.draw()
+        else:
+            dino.draw()
+
+        pygame.display.update()
 
     pygame.display.update()
 
 
-def main():
+def main(genomes, config):
+    
+    nets = []
+    ge = []
+    dinos = []
+
+    for ge_id, genome in genomes:
+        net = neat.nn.FeedForwardNetwork.create(genome, config)
+        nets.append(net)
+        dinos.append(Dino(DINO_Y))
+        genome.fitness = 0
+        ge.append(genome)
 
     WIN.fill(WHITE)
 
-    dino = Dino(DINO_Y)
+    actual_score = 1
+
     one_cactus_small = Obstacle(750, HEIGHT//2 + 75, ONE_CACTUS_SMALL_WIDTH, ONE_CACTUS_SMALL_HEIGHT, ONE_CACTUS_SMALL)
     one_cactus_tall = Obstacle(750, HEIGHT//2 + 57, ONE_CACTUS_TALL_WIDTH, ONE_CACTUS_TALL_HEIGHT, ONE_CACTUS_TALL)
     two_cactus_small = Obstacle(750, HEIGHT//2 + 70, TWO_CACTUS_SMALL_WIDTH, TWO_CACTUS_SMALL_HEIGHT, TWO_CACTUS_SMALL)
@@ -311,19 +359,31 @@ def main():
                 run = False
                 pygame.quit()
 
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE and dino.y == DINO_Y:
-                    dino.jumping = True
+        actual_score += SCORE_UPDATE
+        rounded_score = round(actual_score)
 
-        dino.actual_score += 5/33
-        dino.rounded_score = round(dino.actual_score)
-        collided = draw_window(dino, backgrounds, grounds)
-        
-        if collided:
+        finished = draw_window(dinos, rounded_score, backgrounds, grounds, nets, ge)
+
+        if finished == 'Finished':
+            run = False
             break
-    
-    main()
 
+def run(config_path):
+    
+    config = neat.config.Config(neat.DefaultGenome, 
+                                neat.DefaultReproduction, 
+                                neat.DefaultSpeciesSet, 
+                                neat.DefaultStagnation, 
+                                config_path)
+
+    p = neat.Population(config)
+
+    p.add_reporter(neat.StdOutReporter(True))
+    p.add_reporter(neat.StatisticsReporter())
+
+    best_dino = p.run(main, 30)
 
 if __name__ == "__main__":
-    main()
+    main_dir = os.path.dirname(__file__)        # Gets directory where this file is ran
+    config_path = os.path.join(main_dir, 'config-network.txt')      # Load in config-network.txt path
+    run(config_path)
