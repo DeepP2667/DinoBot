@@ -86,7 +86,6 @@ class Dino:
     def jump(self):
 
         tick_count = 0.5
-        tick_count -= 1/1000
 
         if self.y >= DINO_Y - 100:
             if self.y <= DINO_Y - 90:
