@@ -25,6 +25,8 @@ FOUR_CACTUS_SMALL_WIDTH, FOUR_CACTUS_SMALL_HEIGHT = 53, 35
 FPS = 60
 BACKGROUND_VEL = 1
 
+GEN = 0
+
 SCORE_UPDATE = 5/33
 
 WHITE = (255, 255, 255)
@@ -67,6 +69,8 @@ BORDER = pygame.Rect(0, HEIGHT//2 + 100, WIDTH, 1)
 
 font = r'C:\Users\deepp\Desktop\VSCodeFiles\Python\Games\DinoAi\Assets\PressStart2P-Regular.ttf'
 SCORE_FONT = pygame.font.Font(font, 12)
+NUMBER_ALIVE_FONT = pygame.font.Font(font, 12)
+GENERATION_FONT = pygame.font.Font(font,12)
 
 WIN = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption('DINO GAME')
@@ -234,6 +238,12 @@ def draw_window(dinos, rounded_score, backgrounds, grounds, nets, ge):
     score_text = SCORE_FONT.render(f'{rounded_score}', True, GRAY)
     WIN.blit(score_text, (WIDTH - score_text.get_width() - 20, 20))
 
+    gen_text = GENERATION_FONT.render(f'GEN: {GEN}', True, GRAY)
+    WIN.blit(gen_text, (3, 10))
+
+    alive_dinos = NUMBER_ALIVE_FONT.render(f'ALIVE: {len(dinos)}', True, GRAY)
+    WIN.blit(alive_dinos, (3, 40))
+
     WIN.blit(GROUND, (grounds[0] ,DINO_Y + 40))
     WIN.blit(GROUND2, (grounds[1] ,DINO_Y + 40))
     WIN.blit(GROUND3, (grounds[2] ,DINO_Y + 40))
@@ -254,7 +264,6 @@ def draw_window(dinos, rounded_score, backgrounds, grounds, nets, ge):
     for dino in dinos:
 
         ge[dinos.index(dino)].fitness += SCORE_UPDATE
-
 
         obstacle_pos = Obstacle.current_obstacles[obs_ind].x
         absolute_distance_first = sqrt(pow(dino.x - Obstacle.current_obstacles[obs_ind].x, 2) + pow(dino.y - Obstacle.current_obstacles[obs_ind].y, 2))
@@ -281,7 +290,8 @@ def draw_window(dinos, rounded_score, backgrounds, grounds, nets, ge):
 
 
 def main(genomes, config):
-    
+
+    global GEN
     nets = []
     ge = []
     dinos = []
@@ -366,6 +376,7 @@ def main(genomes, config):
         finished = draw_window(dinos, rounded_score, backgrounds, grounds, nets, ge)
 
         if finished == 'Finished':
+            GEN += 1
             run = False
             break
 
