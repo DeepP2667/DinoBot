@@ -397,5 +397,6 @@ def run(config_path):
 
 if __name__ == "__main__":
     main_dir = os.path.dirname(__file__)        # Gets directory where this file is ran
+    print(main_dir)
     config_path = os.path.join(main_dir, 'config-network.txt')      # Load in config-network.txt path
     run(config_path)
