@@ -32,6 +32,10 @@ DINO2_IMAGE = pygame.image.load(os.path.join('Assets', 'dino2.png'))
 DINO = pygame.transform.scale(DINO_IMAGE, (DINO_WIDTH, DINO_HEIGHT))
 DINO1 = pygame.transform.scale(DINO1_IMAGE, (DINO_WIDTH, DINO_HEIGHT))
 DINO2 = pygame.transform.scale(DINO2_IMAGE, (DINO_WIDTH, DINO_HEIGHT))
+DINODUCKING1_IMAGE = pygame.image.load(os.path.join('Assets', 'DinoDucking1.png'))
+DINODUCKING2_IMAGE = pygame.image.load(os.path.join('Assets', 'DinoDucking2.png'))
+DINODUCKING1 = pygame.transform.scale(DINODUCKING1_IMAGE, (DINO_WIDTH, DINO_HEIGHT))
+DINODUCKING2 = pygame.transform.scale(DINODUCKING2_IMAGE, (DINO_WIDTH, DINO_HEIGHT))
 
 BIRD_IMAGE = pygame.image.load(os.path.join('Assets', 'bird.png'))
 BIRD2_IMAGE = pygame.image.load(os.path.join('Assets', 'bird2.png'))
@@ -74,6 +78,7 @@ class Dino:
         self.img = DINO
         self.jump_vel = 10
         self.jumping = False
+        self.ducking = False
         self.rounded_score = 1
         self.actual_score = 1
         self.animation = 0
@@ -108,15 +113,27 @@ class Dino:
 
         self.animation_count += 1
 
-        if self.y != DINO_Y:
-            WIN.blit(DINO, (self.x, self.y))
-        elif self.animation_count <= 5:
-            WIN.blit(DINO1, (self.x, self.y))
-        elif 5 <= self.animation_count <= 10:
-            WIN.blit(DINO2, (self.x, self.y))
+        if(not self.ducking):
+            if self.y != DINO_Y:
+                WIN.blit(DINO, (self.x, self.y))
+            elif self.animation_count <= 5:
+                WIN.blit(DINO1, (self.x, self.y))
+            elif 5 <= self.animation_count <= 10:
+                WIN.blit(DINO2, (self.x, self.y))
+            else:
+                WIN.blit(DINO2, (self.x, self.y))
+                self.animation_count = 0
+
         else:
-            WIN.blit(DINO2, (self.x, self.y))
-            self.animation_count = 0
+            if self.y != DINO_Y:
+                WIN.blit(DINODUCKING1, (self.x, self.y))
+            elif self.animation_count <= 5:
+                WIN.blit(DINODUCKING1, (self.x, self.y))
+            elif 5 <= self.animation_count <= 10:
+                WIN.blit(DINODUCKING2, (self.x, self.y))
+            else:
+                WIN.blit(DINODUCKING2, (self.x, self.y))
+                self.animation_count = 0
 
 
 class Obstacle:
@@ -184,6 +201,7 @@ class Obstacle:
 
 
     def draw(self):
+
         if self.img != BIRD:
             WIN.blit(self.img, (self.x, self.y))
 
@@ -315,6 +333,12 @@ def main():
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE and dino.y == DINO_Y:
                     dino.jumping = True
+
+                if event.key == pygame.K_DOWN:
+                    dino.ducking = True
+
+            else:
+                dino.ducking = False
 
         dino.actual_score += 5/33
         dino.rounded_score = round(dino.actual_score)
