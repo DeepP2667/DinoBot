@@ -5,7 +5,7 @@ pygame.font.init()
 
 WIDTH, HEIGHT = 700, 400
 DINO_WIDTH, DINO_HEIGHT = 63, 63
-
+DINO_DUCKING_WIDTH, DINO_DUCKING_HEIGHT = 63, 59
 BIRD_WIDTH, BIRD_HEIGHT = 63, 50
 
 DINO_Y = HEIGHT//2 + 48
@@ -34,8 +34,8 @@ DINO1 = pygame.transform.scale(DINO1_IMAGE, (DINO_WIDTH, DINO_HEIGHT))
 DINO2 = pygame.transform.scale(DINO2_IMAGE, (DINO_WIDTH, DINO_HEIGHT))
 DINODUCKING1_IMAGE = pygame.image.load(os.path.join('Assets', 'DinoDucking1.png'))
 DINODUCKING2_IMAGE = pygame.image.load(os.path.join('Assets', 'DinoDucking2.png'))
-DINODUCKING1 = pygame.transform.scale(DINODUCKING1_IMAGE, (DINO_WIDTH, DINO_HEIGHT))
-DINODUCKING2 = pygame.transform.scale(DINODUCKING2_IMAGE, (DINO_WIDTH, DINO_HEIGHT))
+DINODUCKING1 = pygame.transform.scale(DINODUCKING1_IMAGE, (DINO_DUCKING_WIDTH, DINO_DUCKING_HEIGHT))
+DINODUCKING2 = pygame.transform.scale(DINODUCKING2_IMAGE, (DINO_DUCKING_WIDTH, DINO_DUCKING_HEIGHT))
 
 BIRD_IMAGE = pygame.image.load(os.path.join('Assets', 'bird.png'))
 BIRD2_IMAGE = pygame.image.load(os.path.join('Assets', 'bird2.png'))
@@ -75,6 +75,7 @@ class Dino:
     def __init__(self, y):
         self.x = 15
         self.y = y
+        self.dino_ducking_y = y+4
         self.img = DINO
         self.jump_vel = 10
         self.jumping = False
@@ -128,11 +129,11 @@ class Dino:
             if self.y != DINO_Y:
                 WIN.blit(DINODUCKING1, (self.x, self.y))
             elif self.animation_count <= 5:
-                WIN.blit(DINODUCKING1, (self.x, self.y))
+                WIN.blit(DINODUCKING1, (self.x, self.dino_ducking_y))
             elif 5 <= self.animation_count <= 10:
-                WIN.blit(DINODUCKING2, (self.x, self.y))
+                WIN.blit(DINODUCKING2, (self.x, self.dino_ducking_y))
             else:
-                WIN.blit(DINODUCKING2, (self.x, self.y))
+                WIN.blit(DINODUCKING2, (self.x, self.dino_ducking_y))
                 self.animation_count = 0
 
 
@@ -158,7 +159,7 @@ class Obstacle:
         if dino.rounded_score >= 500:
             random_obstacle = random.choice(cls.obstacle_list)
             if random_obstacle.img == BIRD:
-                random_obstacle.y = random.choice([HEIGHT//2, HEIGHT//2 + 35, DINO_Y + 10])
+                random_obstacle.y = random.choice([HEIGHT//2-10, HEIGHT//2 + 17, DINO_Y + 10])
 
         else:    
             random_obstacle = random.choice(cls.obstacle_list[:len(cls.obstacle_list)-1])
@@ -221,8 +222,15 @@ class Obstacle:
     def collide(self, dino):
         dino_mask = dino.get_mask()
         obstacle_mask = pygame.mask.from_surface(self.img)
+        
+        if not dino.ducking:
+            obstacle_offset = (round(self.x - dino.x), round(self.y - dino.y))
 
-        obstacle_offset = (round(self.x - dino.x), round(self.y - dino.y))
+        elif dino.ducking and dino.y == DINO_Y:
+            obstacle_offset = (round(self.x - dino.x), round(self.y - dino.dino_ducking_y))
+
+        else:
+            obstacle_offset = (round(self.x - dino.x), round(self.y - dino.y))
 
         point = dino_mask.overlap(obstacle_mask, obstacle_offset)
 
