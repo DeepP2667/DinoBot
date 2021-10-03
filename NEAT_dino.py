@@ -39,6 +39,10 @@ DINO2_IMAGE = pygame.image.load(os.path.join('Assets', 'dino2.png'))
 DINO = pygame.transform.scale(DINO_IMAGE, (DINO_WIDTH, DINO_HEIGHT))
 DINO1 = pygame.transform.scale(DINO1_IMAGE, (DINO_WIDTH, DINO_HEIGHT))
 DINO2 = pygame.transform.scale(DINO2_IMAGE, (DINO_WIDTH, DINO_HEIGHT))
+DINODUCKING1_IMAGE = pygame.image.load(os.path.join('Assets', 'DinoDucking1.png'))
+DINODUCKING2_IMAGE = pygame.image.load(os.path.join('Assets', 'DinoDucking2.png'))
+DINODUCKING1 = pygame.transform.scale(DINODUCKING1_IMAGE, (DINO_WIDTH, DINO_HEIGHT))
+DINODUCKING2 = pygame.transform.scale(DINODUCKING2_IMAGE, (DINO_WIDTH, DINO_HEIGHT))
 
 BIRD_IMAGE = pygame.image.load(os.path.join('Assets', 'bird.png'))
 BIRD2_IMAGE = pygame.image.load(os.path.join('Assets', 'bird2.png'))
@@ -80,9 +84,11 @@ class Dino:
     def __init__(self, y):
         self.x = 15
         self.y = y
+        self.dino_ducking_y = y+4
         self.img = DINO
         self.jump_vel = 10
         self.jumping = False
+        self.ducking = False
         self.animation = 0
         self.animation_count = 0
 
@@ -114,15 +120,27 @@ class Dino:
 
         self.animation_count += 1
 
-        if self.y != DINO_Y:
-            WIN.blit(DINO, (self.x, self.y))
-        elif self.animation_count <= 5:
-            WIN.blit(DINO1, (self.x, self.y))
-        elif 5 <= self.animation_count <= 10:
-            WIN.blit(DINO2, (self.x, self.y))
+        if(not self.ducking):
+            if self.y != DINO_Y:
+                WIN.blit(DINO, (self.x, self.y))
+            elif self.animation_count <= 5:
+                WIN.blit(DINO1, (self.x, self.y))
+            elif 5 <= self.animation_count <= 10:
+                WIN.blit(DINO2, (self.x, self.y))
+            else:
+                WIN.blit(DINO2, (self.x, self.y))
+                self.animation_count = 0
+
         else:
-            WIN.blit(DINO2, (self.x, self.y))
-            self.animation_count = 0
+            if self.y != DINO_Y:
+                WIN.blit(DINODUCKING1, (self.x, self.y))
+            elif self.animation_count <= 5:
+                WIN.blit(DINODUCKING1, (self.x, self.dino_ducking_y))
+            elif 5 <= self.animation_count <= 10:
+                WIN.blit(DINODUCKING2, (self.x, self.dino_ducking_y))
+            else:
+                WIN.blit(DINODUCKING2, (self.x, self.dino_ducking_y))
+                self.animation_count = 0
 
 
 class Obstacle:
@@ -144,10 +162,10 @@ class Obstacle:
     
     @classmethod
     def add_obstacle(cls, dinos, rounded_score):
-        if rounded_score >= 500:
-            random_obstacle = random.choices(cls.obstacle_list, [0.1,0.1,0.1,0.1,0.1,0.1,0.4])[0]
-            if random_obstacle.img == BIRD:
-                random_obstacle.y = random.choice([HEIGHT//2, HEIGHT//2 + 35, DINO_Y + 10])
+        # if rounded_score >= 500:
+        random_obstacle = random.choices(cls.obstacle_list, [0.1,0.1,0.1,0.1,0.1,0.1,0.4])[0]
+        if random_obstacle.img == BIRD:
+            random_obstacle.y = random.choice([HEIGHT//2-10, HEIGHT//2 + 17, DINO_Y + 10])
 
         else:    
             random_obstacle = random.choice(cls.obstacle_list[:len(cls.obstacle_list)-1])
@@ -215,8 +233,16 @@ class Obstacle:
         for i, dino in enumerate(dinos):
             dino_mask = dino.get_mask()
             obstacle_mask = pygame.mask.from_surface(self.img)
+            
+            if not dino.ducking:
+                obstacle_offset = (round(self.x - dino.x), round(self.y - dino.y))
 
-            obstacle_offset = (round(self.x - dino.x), round(self.y - dino.y))
+            elif dino.ducking and dino.y == DINO_Y:
+                obstacle_offset = (round(self.x - dino.x), round(self.y - dino.dino_ducking_y))
+
+            else:
+                obstacle_offset = (round(self.x - dino.x), round(self.y - dino.y))
+
 
             point = dino_mask.overlap(obstacle_mask, obstacle_offset)
 
@@ -265,7 +291,8 @@ def draw_window(dinos, rounded_score, backgrounds, grounds, nets, ge):
 
         ge[dinos.index(dino)].fitness += SCORE_UPDATE
 
-        obstacle_pos = Obstacle.current_obstacles[obs_ind].x
+        obstacle_x = Obstacle.current_obstacles[obs_ind].x
+        obstacle_y = Obstacle.current_obstacles[obs_ind].y
         absolute_distance_first = sqrt(pow(dino.x - Obstacle.current_obstacles[obs_ind].x, 2) + pow(dino.y - Obstacle.current_obstacles[obs_ind].y, 2))
         
         if obs_ind == 0 and len(Obstacle.current_obstacles) > 1:
@@ -273,15 +300,21 @@ def draw_window(dinos, rounded_score, backgrounds, grounds, nets, ge):
         else:
             absolute_distance_to_next = 750  
 
-        output = nets[dinos.index(dino)].activate((dino.x, obstacle_pos, absolute_distance_first, absolute_distance_to_next))
+        output = nets[dinos.index(dino)].activate((dino.x, obstacle_x, obstacle_y, absolute_distance_first, absolute_distance_to_next))
 
+    
         if dino.y < DINO_Y:
             dino.jump()
             dino.draw()
-        elif output[0] > 0.5:
+        elif output.index(max(output)) == 0:
+            dino.ducking = False
             dino.jump()
             dino.draw()
+        elif output.index(max(output)) == 1:
+            dino.ducking = True
+            dino.draw()
         else:
+            dino.ducking = False
             dino.draw()
 
         pygame.display.update()
