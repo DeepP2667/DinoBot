@@ -8,7 +8,7 @@ pygame.font.init()
 
 WIDTH, HEIGHT = 700, 400
 DINO_WIDTH, DINO_HEIGHT = 63, 63
-
+DINO_DUCKING_WIDTH, DINO_DUCKING_HEIGHT = 63, 59
 BIRD_WIDTH, BIRD_HEIGHT = 63, 50
 
 DINO_Y = HEIGHT//2 + 48
@@ -41,8 +41,8 @@ DINO1 = pygame.transform.scale(DINO1_IMAGE, (DINO_WIDTH, DINO_HEIGHT))
 DINO2 = pygame.transform.scale(DINO2_IMAGE, (DINO_WIDTH, DINO_HEIGHT))
 DINODUCKING1_IMAGE = pygame.image.load(os.path.join('Assets', 'DinoDucking1.png'))
 DINODUCKING2_IMAGE = pygame.image.load(os.path.join('Assets', 'DinoDucking2.png'))
-DINODUCKING1 = pygame.transform.scale(DINODUCKING1_IMAGE, (DINO_WIDTH, DINO_HEIGHT))
-DINODUCKING2 = pygame.transform.scale(DINODUCKING2_IMAGE, (DINO_WIDTH, DINO_HEIGHT))
+DINODUCKING1 = pygame.transform.scale(DINODUCKING1_IMAGE, (DINO_DUCKING_WIDTH, DINO_DUCKING_HEIGHT))
+DINODUCKING2 = pygame.transform.scale(DINODUCKING2_IMAGE, (DINO_DUCKING_WIDTH, DINO_DUCKING_HEIGHT))
 
 BIRD_IMAGE = pygame.image.load(os.path.join('Assets', 'bird.png'))
 BIRD2_IMAGE = pygame.image.load(os.path.join('Assets', 'bird2.png'))
@@ -87,7 +87,6 @@ class Dino:
         self.dino_ducking_y = y+4
         self.img = DINO
         self.jump_vel = 10
-        self.jumping = False
         self.ducking = False
         self.animation = 0
         self.animation_count = 0
@@ -163,7 +162,7 @@ class Obstacle:
     @classmethod
     def add_obstacle(cls, dinos, rounded_score):
         # if rounded_score >= 500:
-        random_obstacle = random.choices(cls.obstacle_list, [0.1,0.1,0.1,0.1,0.1,0.1,0.4])[0]
+        random_obstacle = random.choices(cls.obstacle_list, [0.1,0.1,0.1,0.1,0.1,0.1,0.6])[0]
         if random_obstacle.img == BIRD:
             random_obstacle.y = random.choice([HEIGHT//2-10, HEIGHT//2 + 17, DINO_Y + 10])
 
@@ -249,7 +248,10 @@ class Obstacle:
             if point:
                 dinos.pop(i)
                 nets.pop(i)
-                ge[i].fitness -= 1
+                if self.y == HEIGHT//2-10:
+                    ge[i].fitness -= 40
+                else:
+                    ge[i].fitness -= 10
                 ge.pop(i)
         
 
@@ -291,30 +293,33 @@ def draw_window(dinos, rounded_score, backgrounds, grounds, nets, ge):
 
         ge[dinos.index(dino)].fitness += SCORE_UPDATE
 
+        dino_x = dino.x
+        dino_y = dino.y
         obstacle_x = Obstacle.current_obstacles[obs_ind].x
-        obstacle_y = Obstacle.current_obstacles[obs_ind].y
-        absolute_distance_first = sqrt(pow(dino.x - Obstacle.current_obstacles[obs_ind].x, 2) + pow(dino.y - Obstacle.current_obstacles[obs_ind].y, 2))
-        
-        if obs_ind == 0 and len(Obstacle.current_obstacles) > 1:
-            absolute_distance_to_next = sqrt(pow(dino.x - Obstacle.current_obstacles[obs_ind+1].x, 2) + pow(dino.y - Obstacle.current_obstacles[obs_ind+1].y, 2))
-        else:
-            absolute_distance_to_next = 750  
+        obstacle_y = Obstacle.current_obstacles[obs_ind].y  
+        obstacle_width = Obstacle.current_obstacles[obs_ind].width
+        obstacle_height = Obstacle.current_obstacles[obs_ind].height
+        dino_distance_obs = abs(dino.x + DINO_WIDTH - obstacle_x)
+ 
+        output = nets[dinos.index(dino)].activate((dino_x, dino_y, obstacle_x, obstacle_y, obstacle_width, obstacle_height, dino_distance_obs))
 
-        output = nets[dinos.index(dino)].activate((dino.x, obstacle_x, obstacle_y, absolute_distance_first, absolute_distance_to_next))
-
-    
         if dino.y < DINO_Y:
             dino.jump()
             dino.draw()
-        elif output.index(max(output)) == 0:
-            dino.ducking = False
-            dino.jump()
-            dino.draw()
-        elif output.index(max(output)) == 1:
+        
+        elif output[0] > 0.5 and not dino.ducking:
             dino.ducking = True
             dino.draw()
-        else:
+
+        elif output[0] <= 0.5 and dino.ducking:
             dino.ducking = False
+            dino.draw()
+        
+        elif output[1] > 0.5 and not dino.ducking:
+            dino.jump()
+            dino.draw()
+        
+        else:
             dino.draw()
 
         pygame.display.update()
